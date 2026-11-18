@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR Scanner</title>
+<style>
+  body { margin: 0; background: #101d1b; color: #edf7f2; font: 16px system-ui; }
+  main { max-width: 36rem; margin: 9vh auto; padding: 1.5rem; }
+  h1 { margin: 0; font-size: clamp(2.5rem, 8vw, 4.5rem); letter-spacing: -.06em; }
+  p { color: #b4ccc3; }
+  section { margin-top: 2rem; padding: 1.5rem; border: 1px solid #385449; border-radius: 1.25rem; background: #1b302a; }
+  label, output { display: block; }
+  input { width: 100%; margin-top: .75rem; font: inherit; }
+  input::file-selector-button { background: #aff0cb; color: #10251a; border: 0; border-radius: .5rem; padding: .65rem; margin-right: .65rem; font: inherit; cursor: pointer; }
+  output { margin-top: 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>QR Scanner</h1>
+  <p>Choose a photo or screenshot to read its QR code. The image is processed in your browser.</p>
+  <section>
+    <label for="image">QR code image</label>
+    <input id="image" type="file" accept="image/*">
+    <output id="result" for="image" aria-live="polite"></output>
+  </section>
+</main>
+<script type="module">
+  const input = document.querySelector('#image');
+  const result = document.querySelector('#result');
+  let selection = 0;
+  input.addEventListener('change', async () => {
+    const scan = ++selection;
+    const file = input.files[0];
+    result.textContent = file ? 'Scanning…' : '';
+    if (!file) return;
+    try {
+      const { default: decode } = await import('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm');
+      const bitmap = await createImageBitmap(file);
+      let code;
+      try {
+        const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const context = canvas.getContext('2d');
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        code = decode(pixels.data, pixels.width, pixels.height);
+      } finally {
+        bitmap.close();
+      }
+      if (scan === selection) result.textContent = code ? code.data : 'No QR code found. Try a clearer image.';
+    } catch {
+      if (scan === selection) result.textContent = 'Could not scan the image. Try a PNG or JPEG and check your connection.';
+    }
+  });
+</script>
+</body>
+</html>
